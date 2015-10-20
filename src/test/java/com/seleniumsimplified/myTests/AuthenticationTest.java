@@ -1,44 +1,40 @@
 package com.seleniumsimplified.myTests;
 
+import com.seleniumsimplified.myTests.pages.HomePage;
+import com.seleniumsimplified.myTests.pages.LoginPage;
 import com.seleniumsimplified.webdriver.manager.Driver;
 import org.junit.*;
 import org.openqa.selenium.*;
-import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
 
-import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class AuthenticationTest {
-    static WebDriver driver;
-    static WebDriverWait wait;
+    private WebDriver driver;
+    private LoginPage loginPage;
 
-    private static String adminUsername;
-    private static String adminPassword;
-    private static String username;
-    private static String password;
-    private static String AuthUrl="http://localhost:8080/kepler-186f/#/company/837492/home";
+    private static DashboardUser superadmin;
+    private static DashboardUser user;
 
+    private static String AuthUrl="http://localhost:8080/kepler-186f/";
 
     @BeforeClass
     public static void createDriverAndVisitAuthPage(){
-        driver=Driver.get(AuthUrl);
         readCredentialsFromFile();
-        wait = new WebDriverWait(driver,10);
     }
 
     private static void readCredentialsFromFile(){
-        //Write the credentials in "credentials.txt" in four lines.
-        //admin username
-        //admin password
-        //username
-        //password
+        /*
+        Write the credentials in "credentials.txt" in four lines.
+        admin username
+        admin password
+        username
+        password
+        */
+        superadmin=new DashboardUser();
         String fileName = "credentials.txt";
         String line;
         try {
@@ -49,16 +45,15 @@ public class AuthenticationTest {
                     new BufferedReader(fileReader);
 
             if((line = bufferedReader.readLine()) != null) {
-                adminUsername=line;
+                superadmin.setUsername(line);
+                superadmin.setEmail(line+"@whiteops.com");
+                superadmin.setCompany("White Ops");
+                superadmin.setFirstName("Super");
+                superadmin.setLastName("Admin");
             }
             if((line = bufferedReader.readLine()) != null) {
-                adminPassword=line;
-            }
-            if((line = bufferedReader.readLine()) != null) {
-                username=line;
-            }
-            if((line = bufferedReader.readLine()) != null) {
-                password=line;
+                superadmin.setPassword(line);
+
             }
             bufferedReader.close();
         }
@@ -76,58 +71,44 @@ public class AuthenticationTest {
         }
     }
 
-/*    @Test
-    public void isLoginPageLoaded(){
-
-    }*/
     @Before
-    public void beforeTests(){
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("body.showLogin")));
+    public void setupTest(){
+        driver=Driver.get();
+        loginPage=new LoginPage(driver);
+        loginPage.get();
     }
     @Test
     public void wrongUsername(){
-        WebElement usernameInput=driver.findElement(By.cssSelector("div#login_panel input#id"));
-        WebElement passwordInput=driver.findElement(By.cssSelector("div#login_panel input#password"));
-        usernameInput.sendKeys("aWrongUsernameForTest!");
-        passwordInput.sendKeys("aWrongPasswordForTest!");
-        wait.until(ExpectedConditions.invisibilityOfElementLocated(By.cssSelector("body>div.alert")));
-        driver.findElement(By.cssSelector("div#login_panel button")).click();
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("body>div.alert")));
-        WebElement alertSpan = driver.findElement(By.cssSelector("body>div.alert>span.msg"));
-        System.out.print(alertSpan.getText());
-        assertTrue("Alert for wrong credentials.", alertSpan.getText().contains("is incorrect."));
+        loginPage.submitLoginForm("aWrongUsernameForTest!", "aWrongPasswordForTest!");
+        String notificationMessage = loginPage.waitUntilNotificationPopsUpAndReturnIt();
+        assertTrue("Alert for wrong credentials.", notificationMessage.contains("is incorrect."));
     }
     @Test
-    public void forgotPasswordProcedure(){
-        driver.findElement(By.cssSelector("div.forgot-password>a")).click();
-        WebElement emailInput = driver.findElement(By.cssSelector("#email"));
-        wait.until(ExpectedConditions.visibilityOf(emailInput));
-        emailInput.sendKeys("aWrongEmail@aWrongDomain.xyz");
-        WebElement submitButton = driver.findElement(By.cssSelector("div.right-forgot>button.cta[type=submit]"));
-        wait.until(ExpectedConditions.invisibilityOfElementLocated(By.cssSelector("body>div.alert")));
-        submitButton.click();
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("body>div.alert")));
-        WebElement alertSpans = driver.findElement(By.cssSelector("body>div.alert>span.msg"));
-        assertTrue("Alert for wrong email address.", alertSpans.getText().contains("Please check that your e-mail address is correct."));
-        emailInput.clear();
-        emailInput.sendKeys(adminUsername + "@whiteops.com");
-        submitButton.click();
-        //Check if the email is sent.
+    public void cancelForgotPassword(){
+        loginPage.goToForgotPasswordAndWait();
+        loginPage.cancelForgetPasswordAndWait();
     }
     @Test
-    public void unauthorizedAccess(){
-        WebElement userFullName = driver.findElement(By.cssSelector("div#user_nav ul.dropdown-menu>li.section:first-child>div:first-child"));
-        assertTrue("",userFullName.getText().trim().equals(""));
+    public void forgotPasswordOnWrongEmailAddress(){
+        loginPage.goToForgotPasswordAndWait();
+        loginPage.waitUntilNotificationMessageDisappears();
+        loginPage.submitForgetPassword("aWrongEmailAddress@aWrongDomain.xyz");
+        String msg = loginPage.waitUntilNotificationPopsUpAndReturnIt();
+        assertTrue("Alert for wrong email address.", msg.contains("Please check that your e-mail address is correct."));
     }
-
-    @After
-    public void afterTests(){
-        if(driver.findElements(By.cssSelector("div#login_panel input#id")).size()==0) {
-            WebElement logoutButton = driver.findElement(By.cssSelector("i.icon-logout"));
-            logoutButton.click();
-            wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("body.showLogin")));
-        }
-        driver.navigate().refresh();
-
+    @Test
+    public void forgetPasswordOnCorrectEmailAddress(){
+        loginPage.goToForgotPasswordAndWait();
+        loginPage.waitUntilNotificationMessageDisappears();
+        loginPage.submitForgetPassword(superadmin.getEmail());
+        String msg = loginPage.waitUntilNotificationPopsUpAndReturnIt();
+        assertTrue("Alert for sending an reset password to user's email.", msg.toLowerCase().contains("thank you.")&&msg.toLowerCase().contains(superadmin.getEmail()));
+    }
+    @Test
+    public void superAdminLogin() throws InterruptedException {
+        loginPage.submitLoginForm(superadmin.getUsername(), superadmin.getPassword());
+        assertFalse("No longer in login page.", loginPage.isLoginPageLoaded());
+        HomePage homePage = new HomePage(driver,superadmin);
+        assertTrue("The correct user is logged in.", homePage.isRightUserLoggedIn());
     }
 }
