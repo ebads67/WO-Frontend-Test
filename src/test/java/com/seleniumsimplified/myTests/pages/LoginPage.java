@@ -35,6 +35,7 @@ public class LoginPage extends LoadableComponent<LoginPage> {
             driver.findElement(By.cssSelector("i.icon-logout")).click();
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("body.showLogin")));
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("div#login_panel input#id")));
+            wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("div#login_panel button[type=submit]")));
         }
     }
 
@@ -93,8 +94,12 @@ public class LoginPage extends LoadableComponent<LoginPage> {
     }
 
     public void submitLoginForm(String username, String password) {
-        driver.findElement(By.cssSelector("div#login_panel input#id")).sendKeys(username);
-        driver.findElement(By.cssSelector("div#login_panel input#password")).sendKeys(password);
+        WebElement usernameInput = driver.findElement(By.cssSelector("div#login_panel input#id"));
+        WebElement passwordInput = driver.findElement(By.cssSelector("div#login_panel input#password"));
+        usernameInput.clear();
+        passwordInput.clear();
+        usernameInput.sendKeys(username);
+        passwordInput.sendKeys(password);
         wait.until(ExpectedConditions.invisibilityOfElementLocated(By.cssSelector("body>div.alert")));
         driver.findElement(By.cssSelector("div#login_panel button")).click();
     }
